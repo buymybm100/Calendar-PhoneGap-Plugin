@@ -97,6 +97,8 @@ Calendar.prototype.createEventWithOptions = function (title, location, notes, st
     return;
   }
 
+  console.log("---- 000 HELLO WORLD from createEventWithOptions() -----");
+
   // merge passed options with defaults
   var mergedOptions = Calendar.prototype.getCalendarOptions();
   for (var val in options) {
@@ -107,6 +109,10 @@ Calendar.prototype.createEventWithOptions = function (title, location, notes, st
   if (options.recurrenceEndDate != null) {
     mergedOptions.recurrenceEndTime = options.recurrenceEndDate.getTime();
   }
+
+  console.log("mergedOptions:");
+  console.log(mergedOptions);
+
   cordova.exec(successCallback, errorCallback, "Calendar", "createEventWithOptions", [{
     "title": title,
     "location": location,

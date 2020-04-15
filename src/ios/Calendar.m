@@ -530,7 +530,7 @@
       pluginResult = [CDVPluginResult resultWithStatus: CDVCommandStatus_OK messageAsArray:eventsDataArray];
 
       [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-  }];  
+  }];
 }
 
 - (void)createEventWithOptions:(CDVInvokedUrlCommand*)command {
@@ -551,12 +551,19 @@
   NSString* calendarName = [calOptions objectForKey:@"calendarName"];
   NSString* url = [calOptions objectForKey:@"url"];
 
+  NSArray* days = [calOptions objectForKey:@"recurrenceByDay"]; //SS added
+
   [self.commandDelegate runInBackground: ^{
     EKEvent *myEvent = [EKEvent eventWithEventStore: self.eventStore];
     if (url != (id)[NSNull null]) {
       NSURL* myUrl = [NSURL URLWithString:url];
       myEvent.URL = myUrl;
     }
+
+    NSLog(@"==== IN IOS - 123 createEventWithOptions() ====");
+    NSLog(@"options: %@", options);
+    NSLog(@"==== days ====");
+    NSLog(@"days: %@", days);
 
     NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
     NSDate *myStartDate = [NSDate dateWithTimeIntervalSince1970:_startInterval];
@@ -621,29 +628,97 @@
     }
 
     if (recurrence != (id)[NSNull null]) {
+      NSLog(@"==== 1 Try to add days-of-the-week ====");
+      NSArray *daysOfTheWeekRecurrence = [self createRecurrenceDaysOfWeek:days];
+
+      NSLog(@"==== daysOfTheWeekRecurrence ====");
+      NSLog(@"daysOfTheWeekRecurrence: %@", daysOfTheWeekRecurrence);
+/*
       EKRecurrenceRule *rule = [[EKRecurrenceRule alloc] initRecurrenceWithFrequency: [self toEKRecurrenceFrequency:recurrence]
                                                                             interval: recurrenceIntervalAmount.integerValue
-                                                                                 end: nil];
+                                                                            end: nil];
+                                                                            */
+      // SS added
+      EKRecurrenceRule *rule = [[EKRecurrenceRule alloc] initRecurrenceWithFrequency:[self toEKRecurrenceFrequency:recurrence]
+                                                        interval:recurrenceIntervalAmount.integerValue
+                                                        daysOfTheWeek:daysOfTheWeekRecurrence
+                                                        daysOfTheMonth:nil
+                                                        monthsOfTheYear:nil
+                                                        weeksOfTheYear:nil
+                                                        daysOfTheYear:nil
+                                                        setPositions:nil
+                                                        end:nil];
+
       if (recurrenceEndTime != nil) {
         NSTimeInterval _recurrenceEndTimeInterval = [recurrenceEndTime doubleValue] / 1000; // strip millis
         NSDate *myRecurrenceEndDate = [NSDate dateWithTimeIntervalSince1970:_recurrenceEndTimeInterval];
         EKRecurrenceEnd *end = [EKRecurrenceEnd recurrenceEndWithEndDate:myRecurrenceEndDate];
         rule.recurrenceEnd = end;
       }
+
       [myEvent addRecurrenceRule:rule];
     }
+
+
 
     NSError *error = nil;
     [self.eventStore saveEvent:myEvent span:EKSpanThisEvent error:&error];
 
     if (error) {
       pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:error.userInfo.description];
+      NSLog(@"==== ERROR ====");
     } else {
       pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:myEvent.eventIdentifier];
+      NSLog(@"==== SUCCESS ====");
     }
     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
   }];
 }
+
+// SS
+- (NSMutableArray *) createRecurrenceDaysOfWeek: (NSArray *) days
+{
+    NSMutableArray *daysOfTheWeek = nil;
+
+    if (days.count) {
+        daysOfTheWeek = [[NSMutableArray alloc] init];
+
+        for (NSString *day in days) {
+            EKRecurrenceDayOfWeek *weekDay = [self dayOfTheWeekMatchingName: day];
+            [daysOfTheWeek addObject:weekDay];
+
+        }
+    }
+
+    return daysOfTheWeek;
+}
+
+// SS
+-(EKRecurrenceDayOfWeek *) dayOfTheWeekMatchingName: (NSString *) day
+{
+    EKRecurrenceDayOfWeek *weekDay = nil;
+
+    if ([day isEqualToString:@"MO"]) {
+        weekDay = [EKRecurrenceDayOfWeek dayOfWeek:2];
+    } else if ([day isEqualToString:@"TU"]) {
+        weekDay = [EKRecurrenceDayOfWeek dayOfWeek:3];
+    } else if ([day isEqualToString:@"WE"]) {
+        weekDay = [EKRecurrenceDayOfWeek dayOfWeek:4];
+    } else if ([day isEqualToString:@"TH"]) {
+        weekDay = [EKRecurrenceDayOfWeek dayOfWeek:5];
+    } else if ([day isEqualToString:@"FR"]) {
+        weekDay = [EKRecurrenceDayOfWeek dayOfWeek:6];
+    } else if ([day isEqualToString:@"SA"]) {
+        weekDay = [EKRecurrenceDayOfWeek dayOfWeek:7];
+    } else if ([day isEqualToString:@"SU"]) {
+        weekDay = [EKRecurrenceDayOfWeek dayOfWeek:1];
+    }
+
+    NSLog(@"%s", "dayOfTheWeek");
+    NSLog(@"%@", weekDay);
+    return weekDay;
+}
+
 
 - (void) createEventInteractively:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
